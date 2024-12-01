@@ -1,0 +1,69 @@
+-- Configure the UART port
+local serial_port = MAV_SErialManager:serial(2) -- Replace 2 with your UART port index
+
+-- Motor control variables
+local motor_velocity = 0   -- Initialize motor velocity
+local motor_mode = "V"     -- Default mode: Velocity ("V")
+local motor_voltage_limit = 6 -- Default voltage limit
+local pid_params = {kp = 0.5, ki = 0.1, kd = 0.0} -- Default PID values
+
+-- Function to send commands to the motor
+function send_command(command)
+    if serial_port then
+        -- Send formatted command
+        serial_port:write(command .. "\n")
+        gcs:send_text(6, "Sent: " .. command) -- Debug message to GCS
+    else
+        gcs:send_text(6, "UART port not configured!")
+    end
+end
+
+-- Function to set velocity
+function set_velocity(velocity)
+    motor_velocity = velocity
+    local command = string.format("M%.2f", motor_velocity) -- 'M<value>'
+    send_command(command)
+end
+
+-- Function to set control mode
+function set_mode(mode)
+    motor_mode = mode
+    send_command("C" .. motor_mode) -- 'C<mode>' e.g., 'CV' for velocity
+end
+
+-- Function to set voltage limit
+function set_voltage_limit(limit)
+    motor_voltage_limit = limit
+    local command = string.format("L%.2f", motor_voltage_limit) -- 'L<value>'
+    send_command(command)
+end
+
+-- Function to update PID parameters
+function set_pid_params(kp, ki, kd)
+    pid_params.kp = kp or pid_params.kp
+    pid_params.ki = ki or pid_params.ki
+    pid_params.kd = kd or pid_params.kd
+    local command = string.format("P%.2f %.2f %.2f", pid_params.kp, pid_params.ki, pid_params.kd) -- 'P<kp> <ki> <kd>'
+    send_command(command)
+end
+
+-- Example: Periodically switch modes and test commands
+function periodic_test()
+    -- Alternate velocity and position modes for demonstration
+    if motor_mode == "V" then
+        set_mode("A") -- Switch to angle control
+        set_velocity(45) -- Example: move to angle 45 degrees
+    else
+        set_mode("V") -- Switch back to velocity control
+        set_velocity(20) -- Example: set velocity to 20
+    end
+
+    -- Update voltage limit (example)
+    set_voltage_limit(8)
+
+    -- Adjust PID values (example)
+    set_pid_params(1.0, 0.5, 0.2)
+end
+
+-- Scheduler setup to periodically run the test function
+return periodic_test
